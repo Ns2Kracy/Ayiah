@@ -46,9 +46,6 @@ pub struct AppConfig {
     pub server: ServerConfig,
 
     #[serde(default)]
-    pub auth: AuthConfig,
-
-    #[serde(default)]
     pub logging: LoggingConfig,
 
     #[serde(default)]
@@ -69,32 +66,6 @@ impl Default for ServerConfig {
         Self {
             host: "127.0.0.1".to_string(),
             port: 7590,
-        }
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AuthConfig {
-    #[serde(default)]
-    pub jwt_secret: String,
-
-    #[serde(default)]
-    pub jwt_expiry_hours: u64,
-
-    #[serde(default)]
-    pub pbkdf2_iterations: u32,
-
-    #[serde(default)]
-    pub refresh_token_expiry_days: u64,
-}
-
-impl Default for AuthConfig {
-    fn default() -> Self {
-        Self {
-            jwt_secret: "ayiah".to_string(),
-            jwt_expiry_hours: 24,
-            pbkdf2_iterations: 100000,
-            refresh_token_expiry_days: 7,
         }
     }
 }

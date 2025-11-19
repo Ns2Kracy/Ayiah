@@ -5,7 +5,6 @@ use crate::scraper::{
 };
 use async_trait::async_trait;
 use serde::Deserialize;
-use std::sync::Arc;
 
 const TMDB_BASE_URL: &str = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE: &str = "https://image.tmdb.org/t/p";
@@ -18,14 +17,12 @@ pub struct TmdbProvider {
 
 impl TmdbProvider {
     /// Create a new TMDB provider
-    pub fn new(api_key: impl Into<String>, cache: Arc<crate::scraper::ScraperCache>) -> Self {
+    pub fn new(api_key: impl Into<String>) -> Self {
         let api_key = api_key.into();
-        let config = ProviderConfig::new(TMDB_BASE_URL)
-            .with_api_key(api_key.clone())
-            .with_cache_ttl(86400); // 24 hours
+        let config = ProviderConfig::new(TMDB_BASE_URL).with_api_key(api_key.clone());
 
         Self {
-            base: ProviderBase::new(config, cache),
+            base: ProviderBase::new(config),
             api_key,
         }
     }
@@ -55,7 +52,7 @@ impl TmdbProvider {
         url.push('?');
         url.push_str(&query_string);
 
-        let response = self.base.get_with_rate_limit("tmdb", &url).await?;
+        let response = self.base.get(&url).await?;
 
         if !response.status().is_success() {
             let status = response.status().as_u16();

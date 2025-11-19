@@ -1,12 +1,16 @@
+pub mod downloader;
+pub mod parser;
 pub mod provider;
+pub mod scanner;
+pub mod writer;
 
-mod cache;
-mod rate_limiter;
 mod types;
 
-pub use cache::ScraperCache;
-pub use rate_limiter::{RateLimitConfig, RateLimiter};
+pub use downloader::Downloader;
+pub use parser::{ParsedInfo, Parser};
+pub use scanner::Scanner;
 pub use types::*;
+pub use writer::Writer;
 
 use async_trait::async_trait;
 use std::time::Duration;
@@ -37,6 +41,12 @@ pub enum ScraperError {
 
     #[error("Configuration error: {0}")]
     Config(String),
+
+    #[error("IO error: {0}")]
+    Io(#[from] std::io::Error),
+
+    #[error("XML error: {0}")]
+    Xml(#[from] quick_xml::DeError),
 }
 
 /// Core trait for metadata providers
@@ -51,19 +61,12 @@ pub trait MetadataProvider: Send + Sync {
     }
 
     /// Generic search
-    ///
-    /// Search for media based on query string and year, returning all matching results.
-    /// Each provider decides which media types to search based on its capabilities.
     async fn search(&self, query: &str, year: Option<i32>) -> Result<Vec<MediaSearchResult>>;
 
     /// Get media details
-    ///
-    /// Retrieve complete metadata based on search results.
     async fn get_details(&self, result: &MediaSearchResult) -> Result<MediaDetails>;
 
     /// Get episode details
-    ///
-    /// Retrieve specific episode information for TV shows or anime.
     async fn get_episode_details(
         &self,
         series_id: &str,
@@ -75,7 +78,6 @@ pub trait MetadataProvider: Send + Sync {
 /// Scraper manager for managing multiple providers
 pub struct ScraperManager {
     providers: Vec<Box<dyn MetadataProvider>>,
-    cache: ScraperCache,
 }
 
 impl ScraperManager {
@@ -84,7 +86,6 @@ impl ScraperManager {
     pub fn new() -> Self {
         Self {
             providers: Vec::new(),
-            cache: ScraperCache::new(),
         }
     }
 
@@ -99,15 +100,7 @@ impl ScraperManager {
         &self.providers
     }
 
-    /// Get cache
-    #[must_use]
-    pub const fn cache(&self) -> &ScraperCache {
-        &self.cache
-    }
-
     /// Search media
-    ///
-    /// Query all registered providers and aggregate results.
     pub async fn search(&self, query: &str, year: Option<i32>) -> Result<Vec<MediaSearchResult>> {
         let mut all_results = Vec::new();
 
@@ -132,8 +125,6 @@ impl ScraperManager {
     }
 
     /// Get media details
-    ///
-    /// Automatically select the correct provider based on search results.
     pub async fn get_details(&self, result: &MediaSearchResult) -> Result<MediaDetails> {
         let provider_name = result.provider();
 
@@ -147,8 +138,6 @@ impl ScraperManager {
     }
 
     /// Get episode details
-    ///
-    /// Retrieve specific episode information for TV shows or anime.
     pub async fn get_episode_details(
         &self,
         provider_name: &str,

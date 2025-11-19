@@ -5,7 +5,6 @@ use crate::scraper::{
 };
 use async_trait::async_trait;
 use serde::Deserialize;
-use std::sync::Arc;
 
 const BANGUMI_API_URL: &str = "https://api.bgm.tv";
 
@@ -14,14 +13,17 @@ pub struct BangumiProvider {
     base: ProviderBase,
 }
 
+impl Default for BangumiProvider {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl BangumiProvider {
     /// Create a new Bangumi provider (no API key required)
-    #[must_use]
-    pub fn new(cache: Arc<crate::scraper::ScraperCache>) -> Self {
-        let config = ProviderConfig::new(BANGUMI_API_URL).with_cache_ttl(86400); // 24 hours
-
+    pub fn new() -> Self {
         Self {
-            base: ProviderBase::new(config, cache),
+            base: ProviderBase::new(ProviderConfig::new(BANGUMI_API_URL)),
         }
     }
 
@@ -29,7 +31,7 @@ impl BangumiProvider {
     async fn request<T: for<'de> Deserialize<'de>>(&self, endpoint: &str) -> Result<T> {
         let url = format!("{BANGUMI_API_URL}{endpoint}");
 
-        let response = self.base.get_with_rate_limit("bangumi", &url).await?;
+        let response = self.base.get(&url).await?;
 
         if !response.status().is_success() {
             let status = response.status().as_u16();

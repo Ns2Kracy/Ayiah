@@ -1,30 +1,20 @@
-use super::{ProviderBase, ProviderConfig};
+use super::ProviderBase;
 use crate::scraper::{
     AnimeMetadata, AnimeSearchResult, EpisodeMetadata, ExternalIds, MediaDetails,
     MediaSearchResult, MetadataProvider, Result, ScraperError,
 };
 use async_trait::async_trait;
 use serde::Deserialize;
-use std::sync::Arc;
 
 const ANILIST_API_URL: &str = "https://graphql.anilist.co";
 
 /// `AniList` Provider
+#[derive(Default)]
 pub struct AniListProvider {
     base: ProviderBase,
 }
 
 impl AniListProvider {
-    /// Create a new `AniList` provider (no API key required)
-    #[must_use]
-    pub fn new(cache: Arc<crate::scraper::ScraperCache>) -> Self {
-        let config = ProviderConfig::new(ANILIST_API_URL).with_cache_ttl(86400); // 24 hours
-
-        Self {
-            base: ProviderBase::new(config, cache),
-        }
-    }
-
     /// Execute GraphQL query
     async fn query<T: for<'de> Deserialize<'de>>(
         &self,
