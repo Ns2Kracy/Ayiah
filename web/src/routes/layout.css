@@ -3,4 +3,5 @@
 @plugin '@tailwindcss/typography';
 
 @import '@skeletonlabs/skeleton';
+@import '@skeletonlabs/skeleton/themes/catppuccin';
 @import '@skeletonlabs/skeleton-svelte';
