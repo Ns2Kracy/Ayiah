@@ -1,18 +1,33 @@
-pub mod downloader;
-pub mod parser;
-pub mod provider;
-pub mod scanner;
-pub mod writer;
-
+mod cache;
+mod downloader;
+mod manager;
+mod matcher;
+mod organizer;
+mod parser;
+mod provider;
+mod scanner;
+#[cfg(test)]
+mod tests;
 mod types;
+mod writer;
 
+pub use cache::{CacheConfig, ScraperCache};
 pub use downloader::Downloader;
-pub use parser::{ParsedInfo, Parser};
+pub use manager::{ScrapeResult, ScraperConfig, ScraperManager};
+pub use matcher::{Confidence, Matcher, ScoredMatch};
+pub use organizer::{
+    BatchOrganizeResult, NamingTemplate, OrganizeMethod, OrganizeResult, Organizer, OrganizerConfig,
+};
+pub use parser::{MediaHint, ParsedMedia, Parser};
+pub use provider::{
+    AniListProvider, BangumiProvider, HttpClient, MetadataProvider, SearchOptions, TmdbProvider,
+};
 pub use scanner::Scanner;
-pub use types::*;
+pub use types::{
+    EpisodeInfo, ExternalIds, ImageSet, MediaInfo, MediaMetadata, MediaType, PersonInfo, SeasonInfo,
+};
 pub use writer::Writer;
 
-use async_trait::async_trait;
 use std::time::Duration;
 
 /// Scraper result type
@@ -49,116 +64,18 @@ pub enum ScraperError {
     Xml(#[from] quick_xml::DeError),
 }
 
-/// Core trait for metadata providers
-#[async_trait]
-pub trait MetadataProvider: Send + Sync {
-    /// Provider name
-    fn name(&self) -> &str;
+/// Create a default scraper manager with all providers
+pub fn create_default_manager(tmdb_api_key: Option<&str>) -> ScraperManager {
+    let mut manager = ScraperManager::new();
 
-    /// Whether the provider requires an API key
-    fn requires_api_key(&self) -> bool {
-        false
+    // Add TMDB if API key is provided
+    if let Some(key) = tmdb_api_key {
+        manager.add_provider(TmdbProvider::new(key));
     }
 
-    /// Generic search
-    async fn search(&self, query: &str, year: Option<i32>) -> Result<Vec<MediaSearchResult>>;
+    // Add providers that don't require API keys
+    manager.add_provider(AniListProvider::new());
+    manager.add_provider(BangumiProvider::new());
 
-    /// Get media details
-    async fn get_details(&self, result: &MediaSearchResult) -> Result<MediaDetails>;
-
-    /// Get episode details
-    async fn get_episode_details(
-        &self,
-        series_id: &str,
-        season: i32,
-        episode: i32,
-    ) -> Result<EpisodeMetadata>;
-}
-
-/// Scraper manager for managing multiple providers
-pub struct ScraperManager {
-    providers: Vec<Box<dyn MetadataProvider>>,
-}
-
-impl ScraperManager {
-    /// Create a new scraper manager
-    #[must_use]
-    pub fn new() -> Self {
-        Self {
-            providers: Vec::new(),
-        }
-    }
-
-    /// Add a provider
-    pub fn add_provider(&mut self, provider: Box<dyn MetadataProvider>) {
-        self.providers.push(provider);
-    }
-
-    /// Get all providers
-    #[must_use]
-    pub fn providers(&self) -> &[Box<dyn MetadataProvider>] {
-        &self.providers
-    }
-
-    /// Search media
-    pub async fn search(&self, query: &str, year: Option<i32>) -> Result<Vec<MediaSearchResult>> {
-        let mut all_results = Vec::new();
-
-        for provider in &self.providers {
-            match provider.search(query, year).await {
-                Ok(results) => {
-                    all_results.extend(results);
-                }
-                Err(e) => {
-                    tracing::debug!("Provider {} search failed: {}", provider.name(), e);
-                }
-            }
-        }
-
-        if all_results.is_empty() {
-            Err(ScraperError::NotFound(format!(
-                "No provider could find: {query}"
-            )))
-        } else {
-            Ok(all_results)
-        }
-    }
-
-    /// Get media details
-    pub async fn get_details(&self, result: &MediaSearchResult) -> Result<MediaDetails> {
-        let provider_name = result.provider();
-
-        let provider = self
-            .providers
-            .iter()
-            .find(|p| p.name() == provider_name)
-            .ok_or_else(|| ScraperError::Config(format!("Provider not found: {provider_name}")))?;
-
-        provider.get_details(result).await
-    }
-
-    /// Get episode details
-    pub async fn get_episode_details(
-        &self,
-        provider_name: &str,
-        series_id: &str,
-        season: i32,
-        episode: i32,
-    ) -> Result<EpisodeMetadata> {
-        let provider = self
-            .providers
-            .iter()
-            .find(|p| p.name() == provider_name)
-            .ok_or_else(|| ScraperError::Config(format!("Provider not found: {provider_name}")))?;
-
-        provider
-            .get_episode_details(series_id, season, episode)
-            .await
-    }
-}
-
-impl Default for ScraperManager {
-    fn default() -> Self {
-        Self::new()
-    }
+    manager
 }

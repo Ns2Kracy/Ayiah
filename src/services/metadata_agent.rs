@@ -1,7 +1,8 @@
 use crate::{
-    entities::{CreateVideoMetadata, MediaItem, MediaType, VideoMetadata},
-    scraper::{MediaDetails, ScraperManager},
+    entities::{CreateVideoMetadata, MediaItem, MediaType as EntityMediaType, VideoMetadata},
+    scraper::{Confidence, MediaMetadata, MediaType, Parser, ScraperManager},
 };
+use std::path::Path;
 use std::sync::Arc;
 use tracing::{debug, error, info, warn};
 
@@ -30,44 +31,48 @@ impl MetadataAgent {
             media_item.title, media_item.id
         );
 
-        // Extract year from title if present (e.g., "Movie Title (2023)")
-        let (title, year) = self.parse_title_and_year(&media_item.title);
+        // Parse the title to extract structured information
+        let parsed = Parser::parse_filename(&media_item.title);
 
-        // Search for the media
-        let search_results = self
+        // Convert entity media type to scraper media type for filtering
+        let media_type = match media_item.media_type {
+            EntityMediaType::Movie => Some(MediaType::Movie),
+            EntityMediaType::Tv => Some(MediaType::Tv),
+            EntityMediaType::Comic | EntityMediaType::Book => None,
+        };
+
+        // Search and rank results
+        let ranked_results = self
             .scraper_manager
-            .search(&title, year)
+            .search_ranked(&parsed.title, parsed.year, media_type)
             .await
             .map_err(|e| {
-                error!("Failed to search for {}: {}", title, e);
+                error!("Failed to search for {}: {}", parsed.title, e);
                 MetadataAgentError::SearchFailed(e.to_string())
             })?;
 
-        // Filter results by media type
-        let matching_result = search_results
+        // Get the best match
+        let best_match = ranked_results
             .into_iter()
-            .find(|result| {
-                matches!(
-                    (media_item.media_type, result.media_type()),
-                    (MediaType::Movie, crate::scraper::MediaType::Movie)
-                        | (MediaType::Tv, crate::scraper::MediaType::Tv)
-                )
-            })
+            .next()
+            .filter(|m| m.confidence >= Confidence::Low)
             .ok_or_else(|| {
-                warn!("No matching results found for {}", title);
+                warn!("No matching results found for {}", parsed.title);
                 MetadataAgentError::NoMatchingResults
             })?;
 
         debug!(
-            "Found matching result: {} (Provider: {})",
-            matching_result.title(),
-            matching_result.provider()
+            "Found match: {} (score: {}, confidence: {:?}, provider: {})",
+            best_match.info.title,
+            best_match.score,
+            best_match.confidence,
+            best_match.info.provider
         );
 
         // Get detailed metadata
-        let details = self
+        let metadata = self
             .scraper_manager
-            .get_details(&matching_result)
+            .get_metadata(&best_match.info)
             .await
             .map_err(|e| {
                 error!("Failed to get details: {}", e);
@@ -75,62 +80,90 @@ impl MetadataAgent {
             })?;
 
         // Convert to database format and save
-        let metadata = self.save_metadata(media_item.id, details).await?;
+        let saved = self.save_metadata(media_item.id, &metadata).await?;
+
+        info!(
+            "Successfully saved metadata for {} (ID: {}, confidence: {:?})",
+            media_item.title, media_item.id, best_match.confidence
+        );
+
+        Ok(saved)
+    }
+
+    /// Fetch metadata using file path for better parsing
+    pub async fn fetch_metadata_from_path(
+        &self,
+        media_item: &MediaItem,
+        file_path: &Path,
+    ) -> Result<VideoMetadata, MetadataAgentError> {
+        info!(
+            "Fetching metadata for {} from path: {}",
+            media_item.title,
+            file_path.display()
+        );
+
+        // Use the scraper's built-in path parsing
+        let scrape_result = self.scraper_manager.scrape(file_path).await.map_err(|e| {
+            error!("Failed to scrape {}: {}", file_path.display(), e);
+            MetadataAgentError::SearchFailed(e.to_string())
+        })?;
+
+        debug!(
+            "Scrape result: {} (score: {}, confidence: {:?})",
+            scrape_result.info.title, scrape_result.score, scrape_result.confidence
+        );
+
+        // Get or use existing metadata
+        let metadata = if let Some(m) = scrape_result.metadata {
+            m
+        } else {
+            self.scraper_manager
+                .get_metadata(&scrape_result.info)
+                .await
+                .map_err(|e| {
+                    error!("Failed to get details: {}", e);
+                    MetadataAgentError::DetailsFailed(e.to_string())
+                })?
+        };
+
+        // Save to database
+        let saved = self.save_metadata(media_item.id, &metadata).await?;
 
         info!(
             "Successfully saved metadata for {} (ID: {})",
             media_item.title, media_item.id
         );
 
-        Ok(metadata)
+        Ok(saved)
     }
 
     /// Save metadata to database
     async fn save_metadata(
         &self,
         media_item_id: i64,
-        details: MediaDetails,
+        metadata: &MediaMetadata,
     ) -> Result<VideoMetadata, MetadataAgentError> {
-        let create_metadata = match details {
-            MediaDetails::Movie(movie) => CreateVideoMetadata {
-                media_item_id,
-                tmdb_id: movie
-                    .external_ids
-                    .tmdb_id
-                    .and_then(|id| id.parse().ok()),
-                tvdb_id: movie
-                    .external_ids
-                    .tvdb_id
-                    .and_then(|id| id.parse().ok()),
-                imdb_id: movie.external_ids.imdb_id,
-                overview: movie.overview,
-                poster_path: movie.poster_path,
-                backdrop_path: movie.backdrop_path,
-                release_date: movie.release_date,
-                runtime: movie.runtime,
-                vote_average: movie.vote_average,
-                vote_count: movie.vote_count,
-                genres: movie.genres,
-            },
-            MediaDetails::Tv(tv) => CreateVideoMetadata {
-                media_item_id,
-                tmdb_id: tv.external_ids.tmdb_id.and_then(|id| id.parse().ok()),
-                tvdb_id: tv.external_ids.tvdb_id.and_then(|id| id.parse().ok()),
-                imdb_id: tv.external_ids.imdb_id,
-                overview: tv.overview,
-                poster_path: tv.poster_path,
-                backdrop_path: tv.backdrop_path,
-                release_date: tv.first_air_date,
-                runtime: tv.episode_run_time.first().copied(),
-                vote_average: tv.vote_average,
-                vote_count: tv.vote_count,
-                genres: tv.genres,
-            },
-            MediaDetails::Anime(_) => {
-                return Err(MetadataAgentError::UnsupportedMediaType(
-                    "Anime not yet supported".to_string(),
-                ))
-            }
+        let create_metadata = CreateVideoMetadata {
+            media_item_id,
+            tmdb_id: metadata
+                .external_ids
+                .tmdb
+                .as_ref()
+                .and_then(|id| id.parse().ok()),
+            tvdb_id: metadata
+                .external_ids
+                .tvdb
+                .as_ref()
+                .and_then(|id| id.parse().ok()),
+            imdb_id: metadata.external_ids.imdb.clone(),
+            overview: metadata.overview.clone(),
+            poster_path: metadata.images.poster.clone(),
+            backdrop_path: metadata.images.backdrop.clone(),
+            release_date: metadata.release_date.clone(),
+            runtime: metadata.runtime,
+            vote_average: metadata.rating,
+            vote_count: metadata.vote_count,
+            genres: metadata.genres.clone(),
         };
 
         VideoMetadata::upsert(&self.db, create_metadata)
@@ -139,21 +172,6 @@ impl MetadataAgent {
                 error!("Failed to save metadata to database: {}", e);
                 MetadataAgentError::DatabaseError(e.to_string())
             })
-    }
-
-    /// Parse title and year from a string like "Movie Title (2023)"
-    fn parse_title_and_year(&self, title: &str) -> (String, Option<i32>) {
-        let re = regex::Regex::new(r"^(.+?)\s*\((\d{4})\)\s*$").expect("Invalid regex");
-
-        if let Some(captures) = re.captures(title) {
-            let title = captures.get(1).map(|m| m.as_str().to_string()).unwrap_or_else(|| title.to_string());
-            let year = captures
-                .get(2)
-                .and_then(|m| m.as_str().parse().ok());
-            (title, year)
-        } else {
-            (title.to_string(), None)
-        }
     }
 
     /// Refresh metadata for an existing media item
@@ -185,6 +203,34 @@ impl MetadataAgent {
         }
 
         results
+    }
+
+    /// Search for media without saving
+    pub async fn search(
+        &self,
+        query: &str,
+        year: Option<i32>,
+        media_type: Option<MediaType>,
+    ) -> Result<Vec<crate::scraper::MediaInfo>, MetadataAgentError> {
+        self.scraper_manager
+            .search(query, year, media_type)
+            .await
+            .map_err(|e| MetadataAgentError::SearchFailed(e.to_string()))
+    }
+
+    /// Get metadata for a specific provider ID
+    pub async fn get_metadata_by_id(
+        &self,
+        provider: &str,
+        id: &str,
+        media_type: MediaType,
+    ) -> Result<MediaMetadata, MetadataAgentError> {
+        let info = crate::scraper::MediaInfo::new(id, "", provider).with_type(media_type);
+
+        self.scraper_manager
+            .get_metadata(&info)
+            .await
+            .map_err(|e| MetadataAgentError::DetailsFailed(e.to_string()))
     }
 }
 

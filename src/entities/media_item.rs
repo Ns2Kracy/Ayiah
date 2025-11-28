@@ -49,10 +49,7 @@ pub struct CreateMediaItem {
 
 impl MediaItem {
     /// Create a new media item in the database
-    pub async fn create(
-        db: &sqlx::SqlitePool,
-        item: CreateMediaItem,
-    ) -> Result<Self, sqlx::Error> {
+    pub async fn create(db: &sqlx::SqlitePool, item: CreateMediaItem) -> Result<Self, sqlx::Error> {
         let result = sqlx::query_as::<_, Self>(
             r#"
             INSERT INTO media_items (library_folder_id, media_type, title, file_path, file_size)
@@ -102,6 +99,19 @@ impl MediaItem {
         Ok(result)
     }
 
+    /// List all media items
+    pub async fn list_all(db: &sqlx::SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
+        let results = sqlx::query_as::<_, Self>(
+            r#"
+            SELECT * FROM media_items ORDER BY added_at DESC
+            "#,
+        )
+        .fetch_all(db)
+        .await?;
+
+        Ok(results)
+    }
+
     /// List all media items by type
     pub async fn list_by_type(
         db: &sqlx::SqlitePool,
@@ -123,7 +133,7 @@ impl MediaItem {
     pub async fn update(&self, db: &sqlx::SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
             r#"
-            UPDATE media_items 
+            UPDATE media_items
             SET title = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
             "#,

@@ -53,13 +53,14 @@ impl VideoMetadata {
         db: &sqlx::SqlitePool,
         metadata: CreateVideoMetadata,
     ) -> Result<Self, sqlx::Error> {
-        let genres_json = serde_json::to_string(&metadata.genres).unwrap_or_else(|_| "[]".to_string());
+        let genres_json =
+            serde_json::to_string(&metadata.genres).unwrap_or_else(|_| "[]".to_string());
 
         let result = sqlx::query_as::<_, Self>(
             r#"
             INSERT INTO video_metadata (
-                media_item_id, tmdb_id, tvdb_id, imdb_id, overview, 
-                poster_path, backdrop_path, release_date, runtime, 
+                media_item_id, tmdb_id, tvdb_id, imdb_id, overview,
+                poster_path, backdrop_path, release_date, runtime,
                 vote_average, vote_count, genres
             )
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
@@ -124,6 +125,22 @@ impl VideoMetadata {
 }
 
 impl MediaItemWithMetadata {
+    /// Get all media items with metadata
+    pub async fn list_all(db: &sqlx::SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
+        let media_items = super::MediaItem::list_all(db).await?;
+
+        let mut results = Vec::new();
+        for item in media_items {
+            let metadata = VideoMetadata::find_by_media_item_id(db, item.id).await?;
+            results.push(Self {
+                media_item: item,
+                metadata,
+            });
+        }
+
+        Ok(results)
+    }
+
     /// Get media items with metadata by type
     pub async fn list_by_type(
         db: &sqlx::SqlitePool,
@@ -144,10 +161,7 @@ impl MediaItemWithMetadata {
     }
 
     /// Get media item with metadata by ID
-    pub async fn find_by_id(
-        db: &sqlx::SqlitePool,
-        id: i64,
-    ) -> Result<Option<Self>, sqlx::Error> {
+    pub async fn find_by_id(db: &sqlx::SqlitePool, id: i64) -> Result<Option<Self>, sqlx::Error> {
         let media_item = match super::MediaItem::find_by_id(db, id).await? {
             Some(item) => item,
             None => return Ok(None),

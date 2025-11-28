@@ -17,7 +17,7 @@ use ayiah::{
     db,
     middleware::logger as middleware_logger,
     routes,
-    scraper::{ScraperManager, provider::tmdb::TmdbProvider},
+    scraper::{ScraperManager, TmdbProvider},
     services::MetadataAgent,
     utils::{graceful_shutdown::shutdown_signal, logger},
 };
@@ -46,7 +46,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             // Add TMDB provider
             let tmdb_provider = TmdbProvider::new(tmdb_api_key.clone());
-            scraper_manager.add_provider(Box::new(tmdb_provider));
+            scraper_manager.add_provider(tmdb_provider);
 
             let scraper_manager = Arc::new(scraper_manager);
             let metadata_agent =
