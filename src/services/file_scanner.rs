@@ -65,7 +65,7 @@ impl FileScanner {
 
             // Handle Blu-ray/DVD disc structures by looking for indicator files
             if let Some(file_name) = entry_path.file_name().and_then(|n| n.to_str())
-                && let Some(disc_type) = detect_disc_indicator(file_name)
+                && let Some(_disc_type) = detect_disc_indicator(file_name)
             {
                 if let Some(root) = entry_path.parent().and_then(|p| p.parent())
                     && processed_disc_roots.insert(root.to_path_buf())

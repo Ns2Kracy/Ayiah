@@ -156,3 +156,108 @@ pub struct CacheStats {
     pub search_entries: u64,
     pub metadata_entries: u64,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scraper::types::MediaType;
+
+    #[tokio::test]
+    async fn test_cache_search_results() {
+        let cache = ScraperCache::new();
+
+        let results = vec![MediaInfo::new("1", "Test Movie", "tmdb").with_type(MediaType::Movie)];
+
+        // Cache miss
+        let cached = cache.get_search("tmdb", "test", None).await;
+        assert!(cached.is_none());
+
+        // Set cache
+        cache
+            .set_search("tmdb", "test", None, results.clone())
+            .await;
+
+        // Cache hit
+        let cached = cache.get_search("tmdb", "test", None).await;
+        assert!(cached.is_some());
+        assert_eq!(cached.unwrap().len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_cache_metadata() {
+        let cache = ScraperCache::new();
+
+        let metadata = MediaMetadata {
+            id: "123".to_string(),
+            title: "Test Movie".to_string(),
+            provider: "tmdb".to_string(),
+            ..Default::default()
+        };
+
+        // Cache miss
+        let cached = cache.get_metadata("tmdb", "123").await;
+        assert!(cached.is_none());
+
+        // Set cache
+        cache.set_metadata("tmdb", "123", metadata.clone()).await;
+
+        // Cache hit
+        let cached = cache.get_metadata("tmdb", "123").await;
+        assert!(cached.is_some());
+        assert_eq!(cached.unwrap().title, "Test Movie");
+    }
+
+    #[tokio::test]
+    async fn test_cache_clear() {
+        let cache = ScraperCache::new();
+
+        cache
+            .set_search(
+                "tmdb",
+                "test",
+                None,
+                vec![MediaInfo::new("1", "Test", "tmdb")],
+            )
+            .await;
+
+        cache.clear();
+
+        let cached = cache.get_search("tmdb", "test", None).await;
+        assert!(cached.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_cache_stats() {
+        let cache = ScraperCache::new();
+
+        cache
+            .set_search(
+                "tmdb",
+                "test1",
+                None,
+                vec![MediaInfo::new("1", "Test1", "tmdb")],
+            )
+            .await;
+        cache
+            .set_search(
+                "tmdb",
+                "test2",
+                None,
+                vec![MediaInfo::new("2", "Test2", "tmdb")],
+            )
+            .await;
+
+        let stats = cache.stats();
+        assert!(stats.search_entries <= 2);
+    }
+
+    #[test]
+    fn test_cache_config_default() {
+        let config = CacheConfig::default();
+
+        assert_eq!(config.search_max_entries, 1000);
+        assert_eq!(config.search_ttl, Duration::from_secs(3600));
+        assert_eq!(config.metadata_max_entries, 500);
+        assert_eq!(config.metadata_ttl, Duration::from_secs(86400));
+    }
+}

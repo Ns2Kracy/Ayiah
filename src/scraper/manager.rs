@@ -348,3 +348,49 @@ impl Default for ScraperManager {
         Self::new()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scraper::{AniListProvider, BangumiProvider};
+
+    #[test]
+    fn test_manager_creation() {
+        let manager = ScraperManager::new();
+        assert!(manager.providers().is_empty());
+    }
+
+    #[test]
+    fn test_manager_add_providers() {
+        let mut manager = ScraperManager::new();
+
+        manager.add_provider(AniListProvider::new());
+        manager.add_provider(BangumiProvider::new());
+
+        assert_eq!(manager.providers().len(), 2);
+    }
+
+    #[test]
+    fn test_manager_config() {
+        let config = ScraperConfig {
+            min_confidence: Confidence::High,
+            max_results: 10,
+            use_cache: false,
+            language: Some("zh-CN".to_string()),
+        };
+
+        let manager = ScraperManager::with_config(config);
+        assert!(manager.providers().is_empty());
+    }
+
+    #[test]
+    fn test_default_manager_creation() {
+        // Without API key
+        let manager = crate::scraper::create_default_manager(None);
+        assert_eq!(manager.providers().len(), 2);
+
+        // With API key
+        let manager = crate::scraper::create_default_manager(Some("fake_key"));
+        assert_eq!(manager.providers().len(), 3);
+    }
+}

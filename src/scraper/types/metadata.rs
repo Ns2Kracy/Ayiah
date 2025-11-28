@@ -95,6 +95,55 @@ impl Default for MediaMetadata {
     }
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_media_metadata_default() {
+        let metadata = MediaMetadata::default();
+
+        assert!(metadata.id.is_empty());
+        assert!(metadata.title.is_empty());
+        assert_eq!(metadata.media_type, MediaType::Unknown);
+        assert!(metadata.genres.is_empty());
+        assert!(metadata.cast.is_empty());
+    }
+
+    #[test]
+    fn test_external_ids_merge() {
+        let mut ids1 = ExternalIds {
+            imdb: Some("tt1234567".to_string()),
+            tmdb: Some("123".to_string()),
+            ..Default::default()
+        };
+
+        let ids2 = ExternalIds {
+            tmdb: Some("456".to_string()),
+            tvdb: Some("789".to_string()),
+            ..Default::default()
+        };
+
+        ids1.merge(&ids2);
+
+        assert_eq!(ids1.imdb, Some("tt1234567".to_string()));
+        assert_eq!(ids1.tmdb, Some("456".to_string()));
+        assert_eq!(ids1.tvdb, Some("789".to_string()));
+    }
+
+    #[test]
+    fn test_external_ids_has_any() {
+        let empty = ExternalIds::default();
+        assert!(!empty.has_any());
+
+        let with_imdb = ExternalIds {
+            imdb: Some("tt1234567".to_string()),
+            ..Default::default()
+        };
+        assert!(with_imdb.has_any());
+    }
+}
+
 /// Image URLs for a media item
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct ImageSet {

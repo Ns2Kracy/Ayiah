@@ -75,3 +75,75 @@ impl Scanner {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Scanner;
+    use std::fs::{self, File};
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_scan_finds_video_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path();
+
+        // Create test video files
+        File::create(dir_path.join("movie.mkv")).unwrap();
+        File::create(dir_path.join("show.mp4")).unwrap();
+        File::create(dir_path.join("document.txt")).unwrap();
+
+        let results = Scanner::scan(dir_path);
+
+        assert_eq!(results.len(), 2);
+        assert!(results.iter().any(|p| p.extension().unwrap() == "mkv"));
+        assert!(results.iter().any(|p| p.extension().unwrap() == "mp4"));
+    }
+
+    #[test]
+    fn test_scan_ignores_non_video() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path();
+
+        File::create(dir_path.join("image.jpg")).unwrap();
+        File::create(dir_path.join("audio.mp3")).unwrap();
+        File::create(dir_path.join("subtitle.srt")).unwrap();
+
+        let results = Scanner::scan(dir_path);
+
+        assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_scan_recursive() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path();
+
+        // Create nested structure
+        let subdir = dir_path.join("Season 1");
+        fs::create_dir(&subdir).unwrap();
+
+        File::create(dir_path.join("movie.mkv")).unwrap();
+        File::create(subdir.join("episode.mkv")).unwrap();
+
+        let results = Scanner::scan(dir_path);
+
+        assert_eq!(results.len(), 2);
+    }
+
+    #[test]
+    fn test_scan_detects_bluray_structure() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path();
+
+        // Create Blu-ray structure
+        let bdmv_dir = dir_path.join("Movie").join("BDMV");
+        fs::create_dir_all(&bdmv_dir).unwrap();
+        File::create(bdmv_dir.join("index.bdmv")).unwrap();
+
+        let results = Scanner::scan(dir_path);
+
+        // Should return the root movie folder, not the bdmv file
+        assert_eq!(results.len(), 1);
+        assert!(results[0].ends_with("Movie"));
+    }
+}

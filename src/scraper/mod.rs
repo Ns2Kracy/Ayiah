@@ -6,8 +6,6 @@ mod organizer;
 mod parser;
 mod provider;
 mod scanner;
-#[cfg(test)]
-mod tests;
 mod types;
 mod writer;
 
