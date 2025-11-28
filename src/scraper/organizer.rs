@@ -1,7 +1,6 @@
 //! Media file organizer - organize media files into structured directories
 
 use std::fs;
-use std::os::unix::fs as unix_fs;
 use std::path::{Path, PathBuf};
 use tracing::{info, warn};
 
@@ -152,6 +151,16 @@ impl BatchOrganizeResult {
 pub struct Organizer {
     config: OrganizerConfig,
     scraper: Option<ScraperManager>,
+}
+
+#[cfg(unix)]
+fn create_symlink(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::os::unix::fs::symlink(src, dst)
+}
+
+#[cfg(windows)]
+fn create_symlink(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::os::windows::fs::symlink_file(src, dst)
 }
 
 impl Organizer {
@@ -406,10 +415,10 @@ impl Organizer {
     /// Perform the actual file organization
     fn perform_organize(&self, source: &Path, target: &Path) -> (bool, Option<String>) {
         // Create parent directories
-        if let Some(parent) = target.parent() {
-            if let Err(e) = fs::create_dir_all(parent) {
-                return (false, Some(format!("Failed to create directory: {e}")));
-            }
+        if let Some(parent) = target.parent()
+            && let Err(e) = fs::create_dir_all(parent)
+        {
+            return (false, Some(format!("Failed to create directory: {e}")));
         }
 
         // Check if target already exists
@@ -418,10 +427,11 @@ impl Organizer {
         }
 
         // Remove existing target if overwriting
-        if target.exists() && self.config.overwrite {
-            if let Err(e) = fs::remove_file(target) {
-                return (false, Some(format!("Failed to remove existing file: {e}")));
-            }
+        if target.exists()
+            && self.config.overwrite
+            && let Err(e) = fs::remove_file(target)
+        {
+            return (false, Some(format!("Failed to remove existing file: {e}")));
         }
 
         // Perform the operation
@@ -435,7 +445,7 @@ impl Organizer {
                         .map(|cwd| cwd.join(source))
                         .unwrap_or_else(|_| source.to_path_buf())
                 };
-                unix_fs::symlink(&abs_source, target)
+                create_symlink(&abs_source, target)
             }
             OrganizeMethod::Hardlink => fs::hard_link(source, target),
             OrganizeMethod::Move => fs::rename(source, target),
@@ -467,12 +477,12 @@ impl Organizer {
             )));
         }
 
-        self.scan_recursive(dir, &mut files)?;
+        Self::scan_recursive(dir, &mut files)?;
 
         Ok(files)
     }
 
-    fn scan_recursive(&self, dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), ScraperError> {
+    fn scan_recursive(dir: &Path, files: &mut Vec<PathBuf>) -> Result<(), ScraperError> {
         let entries = fs::read_dir(dir).map_err(|e| {
             ScraperError::Io(std::io::Error::new(
                 e.kind(),
@@ -484,7 +494,7 @@ impl Organizer {
             let path = entry.path();
 
             if path.is_dir() {
-                self.scan_recursive(&path, files)?;
+                Self::scan_recursive(&path, files)?;
             } else if is_video_file(&path) {
                 files.push(path);
             }
