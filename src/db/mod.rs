@@ -5,18 +5,9 @@ use std::time::Duration;
 
 pub type Database = Pool<Sqlite>;
 
-/// Get database file path following XDG Base Directory specification
-/// or `AYIAH_DATA_DIR` environment variable for Docker deployment
+/// Get database file path: ./ayiah.db
 fn get_db_path() -> PathBuf {
-    std::env::var("AYIAH_DATA_DIR").map_or_else(
-        |_| {
-            dirs::data_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join("ayiah")
-                .join("ayiah.db")
-        },
-        |data_dir| PathBuf::from(data_dir).join("ayiah.db"),
-    )
+    PathBuf::from("./ayiah.db")
 }
 
 pub async fn init() -> Result<Database, AyiahError> {
