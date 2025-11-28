@@ -16,14 +16,13 @@ use crate::error::ConfigError;
 // Global configuration manager instance
 static CONFIG_MANAGER: OnceCell<ConfigManager> = OnceCell::new();
 
-// Default configuration path following XDG Base Directory specification
+// Default configuration path: current working directory
 // or AYIAH_DATA_DIR environment variable for Docker deployment
 fn default_config_path() -> PathBuf {
     std::env::var("AYIAH_DATA_DIR").map_or_else(
         |_| {
-            dirs::config_dir()
-                .unwrap_or_else(|| PathBuf::from("."))
-                .join("ayiah")
+            std::env::current_dir()
+                .unwrap_or_else(|_| PathBuf::from("."))
                 .join("ayiah.toml")
         },
         |data_dir| PathBuf::from(data_dir).join("ayiah.toml"),
