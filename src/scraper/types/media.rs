@@ -140,3 +140,49 @@ impl MediaInfo {
         titles
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_media_info_builder() {
+        let info = MediaInfo::new("123", "Test Movie", "tmdb")
+            .with_type(MediaType::Movie)
+            .with_year(Some(2023))
+            .with_original_title(Some("Original Title".to_string()))
+            .with_alt_title("Alternative Title")
+            .with_rating(Some(8.5))
+            .with_popularity(Some(100.0));
+
+        assert_eq!(info.id, "123");
+        assert_eq!(info.title, "Test Movie");
+        assert_eq!(info.provider, "tmdb");
+        assert_eq!(info.media_type, MediaType::Movie);
+        assert_eq!(info.year, Some(2023));
+        assert_eq!(info.rating, Some(8.5));
+    }
+
+    #[test]
+    fn test_media_info_all_titles() {
+        let info = MediaInfo::new("1", "English Title", "test")
+            .with_original_title(Some("日本語タイトル".to_string()))
+            .with_alt_title("Alternative 1")
+            .with_alt_title("Alternative 2");
+
+        let titles = info.all_titles();
+
+        assert_eq!(titles.len(), 4);
+        assert!(titles.contains(&"English Title"));
+        assert!(titles.contains(&"日本語タイトル"));
+        assert!(titles.contains(&"Alternative 1"));
+    }
+
+    #[test]
+    fn test_media_type_compatibility() {
+        assert!(MediaType::Anime.is_compatible_with(MediaType::Tv));
+        assert!(MediaType::Tv.is_compatible_with(MediaType::Anime));
+        assert!(MediaType::Unknown.is_compatible_with(MediaType::Movie));
+        assert!(!MediaType::Movie.is_compatible_with(MediaType::Tv));
+    }
+}

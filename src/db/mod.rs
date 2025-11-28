@@ -5,13 +5,8 @@ use std::time::Duration;
 
 pub type Database = Pool<Sqlite>;
 
-/// Get database file path: ./ayiah.db
-fn get_db_path() -> PathBuf {
-    PathBuf::from("./ayiah.db")
-}
-
 pub async fn init() -> Result<Database, AyiahError> {
-    let db_path = get_db_path();
+    let db_path = PathBuf::from("./ayiah.db");
 
     // Ensure the parent directory exists
     if let Some(parent) = db_path.parent() {

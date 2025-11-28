@@ -69,22 +69,18 @@ impl Matcher {
 
     /// Score a single match
     fn score_match(info: &MediaInfo, parsed: &ParsedMedia) -> ScoredMatch {
-        let mut breakdown = ScoreBreakdown::default();
-
-        // Title matching (0-40 points)
-        breakdown.title_score = Self::score_title(&info.all_titles(), &parsed.title);
-
-        // Year matching (0-20 points)
-        breakdown.year_score = Self::score_year(info.year, parsed.year);
-
-        // Type matching (0-20 points)
-        breakdown.type_score = Self::score_type(info.media_type, parsed.hint);
-
-        // Provider priority (0-10 points)
-        breakdown.provider_score = Self::score_provider(&info.provider, info.media_type);
-
-        // Popularity bonus (0-10 points)
-        breakdown.popularity_score = Self::score_popularity(info.popularity);
+        let breakdown = ScoreBreakdown {
+            // Title matching (0-40 points)
+            title_score: Self::score_title(&info.all_titles(), &parsed.title),
+            // Year matching (0-20 points)
+            year_score: Self::score_year(info.year, parsed.year),
+            // Type matching (0-20 points)
+            type_score: Self::score_type(info.media_type, parsed.hint),
+            // Provider priority (0-10 points)
+            provider_score: Self::score_provider(&info.provider, info.media_type),
+            // Popularity bonus (0-10 points)
+            popularity_score: Self::score_popularity(info.popularity),
+        };
 
         let total_score = breakdown.title_score
             + breakdown.year_score
@@ -266,5 +262,107 @@ mod tests {
         assert_eq!(Matcher::score_year(Some(1999), Some(1999)), 20);
         assert_eq!(Matcher::score_year(Some(1999), Some(2000)), 15);
         assert_eq!(Matcher::score_year(Some(1999), Some(2005)), 0);
+    }
+
+    fn create_test_info(title: &str, year: Option<i32>, media_type: MediaType) -> MediaInfo {
+        MediaInfo::new("123", title, "test")
+            .with_type(media_type)
+            .with_year(year)
+    }
+
+    fn create_parsed(title: &str, year: Option<i32>, hint: MediaHint) -> ParsedMedia {
+        ParsedMedia {
+            title: title.to_string(),
+            original_title: title.to_string(),
+            year,
+            hint,
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_exact_match_high_confidence() {
+        let results = vec![create_test_info("The Matrix", Some(1999), MediaType::Movie)];
+        let parsed = create_parsed("The Matrix", Some(1999), MediaHint::Movie);
+
+        let ranked = Matcher::rank(results, &parsed);
+
+        assert!(!ranked.is_empty());
+        assert!(ranked[0].confidence >= Confidence::High);
+    }
+
+    #[test]
+    fn test_year_mismatch_lowers_score() {
+        let results = vec![
+            create_test_info("The Matrix", Some(1999), MediaType::Movie),
+            create_test_info("The Matrix", Some(2021), MediaType::Movie),
+        ];
+        let parsed = create_parsed("The Matrix", Some(1999), MediaHint::Movie);
+
+        let ranked = Matcher::rank(results, &parsed);
+
+        assert_eq!(ranked.len(), 2);
+        // 1999 version should rank higher
+        assert_eq!(ranked[0].info.year, Some(1999));
+    }
+
+    #[test]
+    fn test_type_mismatch_lowers_score() {
+        let results = vec![
+            create_test_info("Breaking Bad", None, MediaType::Tv),
+            create_test_info("Breaking Bad", None, MediaType::Movie),
+        ];
+        let parsed = create_parsed("Breaking Bad", None, MediaHint::TvShow);
+
+        let ranked = Matcher::rank(results, &parsed);
+
+        // TV version should rank higher
+        assert_eq!(ranked[0].info.media_type, MediaType::Tv);
+    }
+
+    #[test]
+    fn test_partial_title_match() {
+        let results = vec![create_test_info(
+            "Sousou no Frieren",
+            Some(2023),
+            MediaType::Anime,
+        )];
+        let parsed = create_parsed("Frieren", Some(2023), MediaHint::Anime);
+
+        let ranked = Matcher::rank(results, &parsed);
+
+        assert!(!ranked.is_empty());
+        assert!(ranked[0].confidence >= Confidence::Medium);
+    }
+
+    #[test]
+    fn test_best_match_filters_low_confidence() {
+        let results = vec![create_test_info(
+            "Completely Different Title",
+            Some(2000),
+            MediaType::Movie,
+        )];
+        let parsed = create_parsed("The Matrix", Some(1999), MediaHint::Movie);
+
+        let best = Matcher::best_match(results, &parsed);
+
+        // Should return None due to low confidence
+        assert!(best.is_none());
+    }
+
+    #[test]
+    fn test_anime_tv_compatibility() {
+        let results = vec![create_test_info(
+            "Attack on Titan",
+            Some(2013),
+            MediaType::Tv,
+        )];
+        let parsed = create_parsed("Attack on Titan", Some(2013), MediaHint::Anime);
+
+        let ranked = Matcher::rank(results, &parsed);
+
+        // Anime and TV should be compatible
+        assert!(!ranked.is_empty());
+        assert!(ranked[0].confidence >= Confidence::Medium);
     }
 }
