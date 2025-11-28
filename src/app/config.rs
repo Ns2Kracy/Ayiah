@@ -16,17 +16,9 @@ use crate::error::ConfigError;
 // Global configuration manager instance
 static CONFIG_MANAGER: OnceCell<ConfigManager> = OnceCell::new();
 
-// Default configuration path: current working directory
-// or AYIAH_DATA_DIR environment variable for Docker deployment
+// Default configuration path: ./config/ayiah.toml
 fn default_config_path() -> PathBuf {
-    std::env::var("AYIAH_DATA_DIR").map_or_else(
-        |_| {
-            std::env::current_dir()
-                .unwrap_or_else(|_| PathBuf::from("."))
-                .join("ayiah.toml")
-        },
-        |data_dir| PathBuf::from(data_dir).join("ayiah.toml"),
-    )
+    PathBuf::from("./config/ayiah.toml")
 }
 
 const ENVIRONMENT_PREFIX: &str = "AYIAH";
