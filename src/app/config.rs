@@ -24,9 +24,9 @@ fn default_config_path() -> PathBuf {
             dirs::config_dir()
                 .unwrap_or_else(|| PathBuf::from("."))
                 .join("ayiah")
-                .join("config.toml")
+                .join("ayiah.toml")
         },
-        |data_dir| PathBuf::from(data_dir).join("config.toml"),
+        |data_dir| PathBuf::from(data_dir).join("ayiah.toml"),
     )
 }
 
