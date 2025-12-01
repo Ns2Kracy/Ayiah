@@ -30,7 +30,7 @@ pub struct OrganizeRequest {
     pub templates: Option<TemplateConfig>,
 }
 
-fn default_true() -> bool {
+const fn default_true() -> bool {
     true
 }
 
@@ -104,7 +104,7 @@ pub struct PreviewRequest {
 /// Organize media files
 /// POST /api/organizer/organize
 async fn organize(
-    State(ctx): State<Ctx>,
+    State(_ctx): State<Ctx>,
     Json(req): Json<OrganizeRequest>,
 ) -> Result<Json<ApiResponse<OrganizeResponse>>, (StatusCode, Json<ApiResponse<()>>)> {
     // Parse method
@@ -154,16 +154,7 @@ async fn organize(
     }
 
     // Create organizer
-    let organizer = if let Some(ref scraper) = ctx.scraper_manager {
-        // Clone the scraper manager's configuration to create a new one for the organizer
-        let scraper_config = ctx.config.read();
-        let new_scraper =
-            crate::scraper::create_default_manager(scraper_config.scraper.tmdb_api_key.as_deref());
-        drop(scraper_config);
-        Organizer::new(config).with_scraper(new_scraper)
-    } else {
-        Organizer::new(config)
-    };
+    let organizer = Organizer::new(config);
 
     // Run organize
     let result = organizer.organize_all().await.map_err(|e| {
@@ -188,13 +179,11 @@ async fn organize(
             title: r
                 .metadata
                 .as_ref()
-                .map(|m| m.title.clone())
-                .unwrap_or_else(|| r.parsed.title.clone()),
-            media_type: r
-                .metadata
-                .as_ref()
-                .map(|m| m.media_type.to_string())
-                .unwrap_or_else(|| format!("{:?}", r.parsed.hint)),
+                .map_or_else(|| r.parsed.title.clone(), |m| m.title.clone()),
+            media_type: r.metadata.as_ref().map_or_else(
+                || format!("{:?}", r.parsed.hint),
+                |m| m.media_type.to_string(),
+            ),
             season: r.parsed.season,
             episode: r.parsed.episode,
         });

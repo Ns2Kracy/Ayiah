@@ -173,7 +173,8 @@ pub struct ExternalIds {
 
 impl ExternalIds {
     /// Check if any ID is set
-    pub fn has_any(&self) -> bool {
+    #[must_use] 
+    pub const fn has_any(&self) -> bool {
         self.imdb.is_some()
             || self.tmdb.is_some()
             || self.tvdb.is_some()
@@ -183,8 +184,8 @@ impl ExternalIds {
             || self.bangumi.is_some()
     }
 
-    /// Merge with another ExternalIds, preferring non-None values from other
-    pub fn merge(&mut self, other: &ExternalIds) {
+    /// Merge with another `ExternalIds`, preferring non-None values from other
+    pub fn merge(&mut self, other: &Self) {
         if other.imdb.is_some() {
             self.imdb = other.imdb.clone();
         }

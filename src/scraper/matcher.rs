@@ -46,6 +46,7 @@ pub struct Matcher;
 
 impl Matcher {
     /// Score and rank search results against parsed media info
+    #[must_use] 
     pub fn rank(results: Vec<MediaInfo>, parsed: &ParsedMedia) -> Vec<ScoredMatch> {
         let mut scored: Vec<ScoredMatch> = results
             .into_iter()
@@ -59,6 +60,7 @@ impl Matcher {
     }
 
     /// Get the best match if confidence is high enough
+    #[must_use] 
     pub fn best_match(results: Vec<MediaInfo>, parsed: &ParsedMedia) -> Option<ScoredMatch> {
         let ranked = Self::rank(results, parsed);
         ranked
@@ -163,7 +165,7 @@ impl Matcher {
         (jaccard + contains_bonus).min(1.0)
     }
 
-    fn score_year(info_year: Option<i32>, parsed_year: Option<i32>) -> i32 {
+    const fn score_year(info_year: Option<i32>, parsed_year: Option<i32>) -> i32 {
         match (info_year, parsed_year) {
             (Some(a), Some(b)) => {
                 let diff = (a - b).abs();
@@ -179,7 +181,7 @@ impl Matcher {
         }
     }
 
-    fn score_type(info_type: MediaType, hint: MediaHint) -> i32 {
+    const fn score_type(info_type: MediaType, hint: MediaHint) -> i32 {
         match (info_type, hint) {
             // Exact matches
             (MediaType::Movie, MediaHint::Movie) => 20,
@@ -218,7 +220,7 @@ impl Matcher {
         }
     }
 
-    fn calculate_confidence(total_score: i32, breakdown: &ScoreBreakdown) -> Confidence {
+    const fn calculate_confidence(total_score: i32, breakdown: &ScoreBreakdown) -> Confidence {
         // Must have decent title match
         if breakdown.title_score < 20 {
             return Confidence::None;

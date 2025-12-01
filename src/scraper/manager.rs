@@ -58,6 +58,7 @@ pub struct ScraperManager {
 
 impl ScraperManager {
     /// Create a new scraper manager
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             providers: Vec::new(),
@@ -67,6 +68,7 @@ impl ScraperManager {
     }
 
     /// Create with custom configuration
+    #[must_use] 
     pub fn with_config(config: ScraperConfig) -> Self {
         Self {
             providers: Vec::new(),
@@ -81,6 +83,7 @@ impl ScraperManager {
     }
 
     /// Get all providers
+    #[must_use] 
     pub fn providers(&self) -> &[Arc<dyn MetadataProvider>] {
         &self.providers
     }
@@ -150,13 +153,12 @@ impl ScraperManager {
         media_type: Option<MediaType>,
     ) -> Result<Vec<MediaInfo>> {
         let hint = media_type
-            .map(|t| match t {
+            .map_or(MediaHint::Unknown, |t| match t {
                 MediaType::Movie => MediaHint::Movie,
                 MediaType::Tv => MediaHint::TvShow,
                 MediaType::Anime => MediaHint::Anime,
                 MediaType::Unknown => MediaHint::Unknown,
-            })
-            .unwrap_or(MediaHint::Unknown);
+            });
 
         self.search_all(query, year, hint).await
     }
@@ -175,13 +177,12 @@ impl ScraperManager {
             original_title: query.to_string(),
             year,
             hint: media_type
-                .map(|t| match t {
+                .map_or(MediaHint::Unknown, |t| match t {
                     MediaType::Movie => MediaHint::Movie,
                     MediaType::Tv => MediaHint::TvShow,
                     MediaType::Anime => MediaHint::Anime,
                     MediaType::Unknown => MediaHint::Unknown,
-                })
-                .unwrap_or(MediaHint::Unknown),
+                }),
             ..Default::default()
         };
 

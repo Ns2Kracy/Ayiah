@@ -13,7 +13,8 @@ pub enum MediaType {
 
 impl MediaType {
     /// Check if this type is compatible with another
-    pub fn is_compatible_with(&self, other: MediaType) -> bool {
+    #[must_use] 
+    pub fn is_compatible_with(&self, other: Self) -> bool {
         match (self, other) {
             (Self::Unknown, _) | (_, Self::Unknown) => true,
             (Self::Anime, Self::Tv) | (Self::Tv, Self::Anime) => true,
@@ -61,7 +62,7 @@ pub struct MediaInfo {
 }
 
 impl MediaInfo {
-    /// Create a new MediaInfo with required fields
+    /// Create a new `MediaInfo` with required fields
     pub fn new(
         id: impl Into<String>,
         title: impl Into<String>,
@@ -83,18 +84,21 @@ impl MediaInfo {
     }
 
     /// Builder pattern: set media type
-    pub fn with_type(mut self, media_type: MediaType) -> Self {
+    #[must_use] 
+    pub const fn with_type(mut self, media_type: MediaType) -> Self {
         self.media_type = media_type;
         self
     }
 
     /// Builder pattern: set year
-    pub fn with_year(mut self, year: Option<i32>) -> Self {
+    #[must_use] 
+    pub const fn with_year(mut self, year: Option<i32>) -> Self {
         self.year = year;
         self
     }
 
     /// Builder pattern: set original title
+    #[must_use] 
     pub fn with_original_title(mut self, title: Option<String>) -> Self {
         self.original_title = title;
         self
@@ -107,25 +111,29 @@ impl MediaInfo {
     }
 
     /// Builder pattern: set poster URL
+    #[must_use] 
     pub fn with_poster(mut self, url: Option<String>) -> Self {
         self.poster_url = url;
         self
     }
 
     /// Builder pattern: set overview
+    #[must_use] 
     pub fn with_overview(mut self, overview: Option<String>) -> Self {
         self.overview = overview;
         self
     }
 
     /// Builder pattern: set rating
-    pub fn with_rating(mut self, rating: Option<f64>) -> Self {
+    #[must_use] 
+    pub const fn with_rating(mut self, rating: Option<f64>) -> Self {
         self.rating = rating;
         self
     }
 
     /// Builder pattern: set popularity
-    pub fn with_popularity(mut self, popularity: Option<f64>) -> Self {
+    #[must_use] 
+    pub const fn with_popularity(mut self, popularity: Option<f64>) -> Self {
         self.popularity = popularity;
         self
     }

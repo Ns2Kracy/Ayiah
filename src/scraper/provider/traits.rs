@@ -18,16 +18,19 @@ pub struct SearchOptions {
 }
 
 impl SearchOptions {
+    #[must_use] 
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn with_year(mut self, year: Option<i32>) -> Self {
+    #[must_use] 
+    pub const fn with_year(mut self, year: Option<i32>) -> Self {
         self.year = year;
         self
     }
 
-    pub fn with_limit(mut self, limit: usize) -> Self {
+    #[must_use] 
+    pub const fn with_limit(mut self, limit: usize) -> Self {
         self.limit = Some(limit);
         self
     }
@@ -37,7 +40,8 @@ impl SearchOptions {
         self
     }
 
-    pub fn with_type(mut self, media_type: MediaType) -> Self {
+    #[must_use] 
+    pub const fn with_type(mut self, media_type: MediaType) -> Self {
         self.media_type = Some(media_type);
         self
     }

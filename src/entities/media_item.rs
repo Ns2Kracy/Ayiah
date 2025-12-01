@@ -51,11 +51,11 @@ impl MediaItem {
     /// Create a new media item in the database
     pub async fn create(db: &sqlx::SqlitePool, item: CreateMediaItem) -> Result<Self, sqlx::Error> {
         let result = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             INSERT INTO media_items (library_folder_id, media_type, title, file_path, file_size)
             VALUES (?, ?, ?, ?, ?)
             RETURNING *
-            "#,
+            ",
         )
         .bind(item.library_folder_id)
         .bind(item.media_type)
@@ -71,9 +71,9 @@ impl MediaItem {
     /// Find media item by ID
     pub async fn find_by_id(db: &sqlx::SqlitePool, id: i64) -> Result<Option<Self>, sqlx::Error> {
         let result = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             SELECT * FROM media_items WHERE id = ?
-            "#,
+            ",
         )
         .bind(id)
         .fetch_optional(db)
@@ -88,9 +88,9 @@ impl MediaItem {
         path: &str,
     ) -> Result<Option<Self>, sqlx::Error> {
         let result = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             SELECT * FROM media_items WHERE file_path = ?
-            "#,
+            ",
         )
         .bind(path)
         .fetch_optional(db)
@@ -102,9 +102,9 @@ impl MediaItem {
     /// List all media items
     pub async fn list_all(db: &sqlx::SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         let results = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             SELECT * FROM media_items ORDER BY added_at DESC
-            "#,
+            ",
         )
         .fetch_all(db)
         .await?;
@@ -118,9 +118,9 @@ impl MediaItem {
         media_type: MediaType,
     ) -> Result<Vec<Self>, sqlx::Error> {
         let results = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             SELECT * FROM media_items WHERE media_type = ? ORDER BY added_at DESC
-            "#,
+            ",
         )
         .bind(media_type)
         .fetch_all(db)
@@ -132,11 +132,11 @@ impl MediaItem {
     /// Update media item
     pub async fn update(&self, db: &sqlx::SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
-            r#"
+            r"
             UPDATE media_items
             SET title = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-            "#,
+            ",
         )
         .bind(&self.title)
         .bind(self.id)
@@ -149,9 +149,9 @@ impl MediaItem {
     /// Delete media item
     pub async fn delete(db: &sqlx::SqlitePool, id: i64) -> Result<(), sqlx::Error> {
         sqlx::query(
-            r#"
+            r"
             DELETE FROM media_items WHERE id = ?
-            "#,
+            ",
         )
         .bind(id)
         .execute(db)

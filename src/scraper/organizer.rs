@@ -134,15 +134,18 @@ pub struct BatchOrganizeResult {
 }
 
 impl BatchOrganizeResult {
-    pub fn total(&self) -> usize {
+    #[must_use] 
+    pub const fn total(&self) -> usize {
         self.success.len() + self.failed.len() + self.skipped.len()
     }
 
-    pub fn success_count(&self) -> usize {
+    #[must_use] 
+    pub const fn success_count(&self) -> usize {
         self.success.len()
     }
 
-    pub fn failed_count(&self) -> usize {
+    #[must_use] 
+    pub const fn failed_count(&self) -> usize {
         self.failed.len()
     }
 }
@@ -165,7 +168,8 @@ fn create_symlink(src: &Path, dst: &Path) -> std::io::Result<()> {
 
 impl Organizer {
     /// Create a new organizer with configuration
-    pub fn new(config: OrganizerConfig) -> Self {
+    #[must_use] 
+    pub const fn new(config: OrganizerConfig) -> Self {
         Self {
             config,
             scraper: None,
@@ -173,6 +177,7 @@ impl Organizer {
     }
 
     /// Set scraper manager for metadata lookup
+    #[must_use] 
     pub fn with_scraper(mut self, scraper: ScraperManager) -> Self {
         self.scraper = Some(scraper);
         self
@@ -292,9 +297,7 @@ impl Organizer {
         let mut target = self.config.target_dir.clone();
 
         // Get title and year from metadata or parsed info
-        let title = metadata
-            .map(|m| m.title.clone())
-            .unwrap_or_else(|| sanitize_filename(&parsed.title));
+        let title = metadata.map_or_else(|| sanitize_filename(&parsed.title), |m| m.title.clone());
 
         let year = metadata
             .and_then(|m| m.release_date.as_ref())
@@ -326,52 +329,49 @@ impl Organizer {
         let ext = source.extension().and_then(|e| e.to_str()).unwrap_or("mkv");
 
         // Build path based on media type
-        match media_type {
-            MediaType::Movie => {
-                // Movies/{title} ({year})/{title} ({year}).ext
-                let folder_name = self.format_template(
-                    &self.config.template.movie_folder,
-                    &title,
-                    year,
-                    None,
-                    None,
-                );
-                let file_name = self.format_template(
-                    &self.config.template.movie_file,
-                    &title,
-                    year,
-                    None,
-                    None,
-                );
-                target.push(sanitize_filename(&folder_name));
-                target.push(format!("{}.{}", sanitize_filename(&file_name), ext));
-            }
-            _ => {
-                // TV Shows/{title} ({year})/Season XX/{title} - SXXEXX.ext
-                let folder_name =
-                    self.format_template(&self.config.template.tv_folder, &title, year, None, None);
-                target.push(sanitize_filename(&folder_name));
+        if media_type == MediaType::Movie {
+            // Movies/{title} ({year})/{title} ({year}).ext
+            let folder_name = self.format_template(
+                &self.config.template.movie_folder,
+                &title,
+                year,
+                None,
+                None,
+            );
+            let file_name = self.format_template(
+                &self.config.template.movie_file,
+                &title,
+                year,
+                None,
+                None,
+            );
+            target.push(sanitize_filename(&folder_name));
+            target.push(format!("{}.{}", sanitize_filename(&file_name), ext));
+        } else {
+            // TV Shows/{title} ({year})/Season XX/{title} - SXXEXX.ext
+            let folder_name =
+                self.format_template(&self.config.template.tv_folder, &title, year, None, None);
+            target.push(sanitize_filename(&folder_name));
 
-                let season = parsed.season.unwrap_or(1);
-                let season_folder = self.format_template(
-                    &self.config.template.season_folder,
-                    &title,
-                    year,
-                    Some(season),
-                    None,
-                );
-                target.push(sanitize_filename(&season_folder));
+            let season = parsed.season.unwrap_or(1);
+            let season_folder = self.format_template(
+                &self.config.template.season_folder,
+                &title,
+                year,
+                Some(season),
+                None,
+            );
+            target.push(sanitize_filename(&season_folder));
 
-                let episode = parsed.episode.unwrap_or(1);
-                let file_name = self.format_template(
-                    &self.config.template.episode_file,
-                    &title,
-                    year,
-                    Some(season),
-                    Some(episode),
-                );
-                target.push(format!("{}.{}", sanitize_filename(&file_name), ext));
-            }
+            let episode = parsed.episode.unwrap_or(1);
+            let file_name = self.format_template(
+                &self.config.template.episode_file,
+                &title,
+                year,
+                Some(season),
+                Some(episode),
+            );
+            target.push(format!("{}.{}", sanitize_filename(&file_name), ext));
         }
 
         Ok(target)
@@ -400,12 +400,12 @@ impl Organizer {
         }
 
         if let Some(s) = season {
-            result = result.replace("{season:02}", &format!("{:02}", s));
+            result = result.replace("{season:02}", &format!("{s:02}"));
             result = result.replace("{season}", &s.to_string());
         }
 
         if let Some(e) = episode {
-            result = result.replace("{episode:02}", &format!("{:02}", e));
+            result = result.replace("{episode:02}", &format!("{e:02}"));
             result = result.replace("{episode}", &e.to_string());
         }
 
@@ -441,9 +441,7 @@ impl Organizer {
                 let abs_source = if source.is_absolute() {
                     source.to_path_buf()
                 } else {
-                    std::env::current_dir()
-                        .map(|cwd| cwd.join(source))
-                        .unwrap_or_else(|_| source.to_path_buf())
+                    std::env::current_dir().map_or_else(|_| source.to_path_buf(), |cwd| cwd.join(source))
                 };
                 create_symlink(&abs_source, target)
             }
@@ -472,8 +470,7 @@ impl Organizer {
 
         if !dir.is_dir() {
             return Err(ScraperError::Config(format!(
-                "{:?} is not a directory",
-                dir
+                "{dir:?} is not a directory"
             )));
         }
 
@@ -486,7 +483,7 @@ impl Organizer {
         let entries = fs::read_dir(dir).map_err(|e| {
             ScraperError::Io(std::io::Error::new(
                 e.kind(),
-                format!("Failed to read {:?}: {}", dir, e),
+                format!("Failed to read {dir:?}: {e}"),
             ))
         })?;
 
@@ -512,8 +509,7 @@ fn is_video_file(path: &Path) -> bool {
 
     path.extension()
         .and_then(|e| e.to_str())
-        .map(|e| VIDEO_EXTENSIONS.contains(&e.to_lowercase().as_str()))
-        .unwrap_or(false)
+        .is_some_and(|e| VIDEO_EXTENSIONS.contains(&e.to_lowercase().as_str()))
 }
 
 /// Sanitize a string for use as a filename

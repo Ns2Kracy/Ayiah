@@ -31,11 +31,11 @@ impl LibraryFolder {
         folder: CreateLibraryFolder,
     ) -> Result<Self, sqlx::Error> {
         let result = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             INSERT INTO library_folders (name, path, media_type)
             VALUES (?, ?, ?)
             RETURNING *
-            "#,
+            ",
         )
         .bind(folder.name)
         .bind(folder.path)
@@ -49,9 +49,9 @@ impl LibraryFolder {
     /// Find library folder by ID
     pub async fn find_by_id(db: &sqlx::SqlitePool, id: i64) -> Result<Option<Self>, sqlx::Error> {
         let result = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             SELECT * FROM library_folders WHERE id = ?
-            "#,
+            ",
         )
         .bind(id)
         .fetch_optional(db)
@@ -63,9 +63,9 @@ impl LibraryFolder {
     /// List all library folders
     pub async fn list_all(db: &sqlx::SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         let results = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             SELECT * FROM library_folders ORDER BY created_at DESC
-            "#,
+            ",
         )
         .fetch_all(db)
         .await?;
@@ -76,9 +76,9 @@ impl LibraryFolder {
     /// List enabled library folders
     pub async fn list_enabled(db: &sqlx::SqlitePool) -> Result<Vec<Self>, sqlx::Error> {
         let results = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             SELECT * FROM library_folders WHERE enabled = 1 ORDER BY created_at DESC
-            "#,
+            ",
         )
         .fetch_all(db)
         .await?;
@@ -89,11 +89,11 @@ impl LibraryFolder {
     /// Update library folder
     pub async fn update(&self, db: &sqlx::SqlitePool) -> Result<(), sqlx::Error> {
         sqlx::query(
-            r#"
-            UPDATE library_folders 
+            r"
+            UPDATE library_folders
             SET name = ?, path = ?, media_type = ?, enabled = ?, updated_at = CURRENT_TIMESTAMP
             WHERE id = ?
-            "#,
+            ",
         )
         .bind(&self.name)
         .bind(&self.path)
@@ -109,9 +109,9 @@ impl LibraryFolder {
     /// Delete library folder
     pub async fn delete(db: &sqlx::SqlitePool, id: i64) -> Result<(), sqlx::Error> {
         sqlx::query(
-            r#"
+            r"
             DELETE FROM library_folders WHERE id = ?
-            "#,
+            ",
         )
         .bind(id)
         .execute(db)

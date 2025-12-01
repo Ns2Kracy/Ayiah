@@ -39,8 +39,7 @@ impl Writer {
     async fn write_nfo<T: Serialize>(path: &Path, nfo: &T) -> Result<()> {
         let xml = to_string(nfo)?;
         let content = format!(
-            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n{}",
-            xml
+            "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>\n{xml}"
         );
 
         if let Some(parent) = path.parent() {
@@ -120,7 +119,7 @@ impl From<&MediaMetadata> for MovieNfo {
         let writers: Vec<String> = m
             .crew
             .iter()
-            .filter(|c| matches!(c.role.as_deref(), Some("Writer") | Some("Screenplay")))
+            .filter(|c| matches!(c.role.as_deref(), Some("Writer" | "Screenplay")))
             .map(|c| c.name.clone())
             .collect();
 

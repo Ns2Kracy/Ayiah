@@ -26,11 +26,13 @@ impl HttpClient {
     }
 
     /// Get the underlying reqwest client
-    pub fn inner(&self) -> &Client {
+    #[must_use] 
+    pub const fn inner(&self) -> &Client {
         &self.client
     }
 
     /// Build full URL from endpoint
+    #[must_use] 
     pub fn url(&self, endpoint: &str) -> String {
         format!("{}{}", self.base_url, endpoint)
     }

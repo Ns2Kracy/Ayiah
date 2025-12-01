@@ -16,7 +16,7 @@ pub struct ParsedMedia {
     pub episode: Option<i32>,
     /// Video resolution (e.g., "1080p")
     pub resolution: Option<String>,
-    /// Source quality (e.g., "BluRay", "WEB-DL")
+    /// Source quality (e.g., "`BluRay`", "WEB-DL")
     pub quality: Option<String>,
     /// Video codec (e.g., "x265", "HEVC")
     pub codec: Option<String>,
@@ -47,6 +47,7 @@ pub struct Parser;
 
 impl Parser {
     /// Parse a file path to extract media information
+    #[must_use] 
     pub fn parse(path: &Path) -> ParsedMedia {
         let filename = path.file_stem().and_then(|s| s.to_str()).unwrap_or("");
 
@@ -54,6 +55,7 @@ impl Parser {
     }
 
     /// Parse a filename string directly
+    #[must_use] 
     pub fn parse_filename(filename: &str) -> ParsedMedia {
         let mut result = ParsedMedia {
             original_title: filename.to_string(),
@@ -229,8 +231,7 @@ impl Parser {
                     patterns
                         .release_group_start
                         .find(filename)
-                        .map(|m| m.end())
-                        .unwrap_or(0),
+                        .map_or(0, |m| m.end()),
                 )
             } else {
                 pos

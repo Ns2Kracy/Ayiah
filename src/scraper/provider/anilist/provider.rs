@@ -1,4 +1,4 @@
-use super::api_types::*;
+use super::api_types::{GraphQLResponse, Media, SearchData, MediaData};
 use crate::scraper::{
     Result, ScraperError,
     provider::{HttpClient, MetadataProvider, SearchOptions},
@@ -19,6 +19,7 @@ impl Default for AniListProvider {
 }
 
 impl AniListProvider {
+    #[must_use] 
     pub fn new() -> Self {
         Self {
             client: HttpClient::new(ANILIST_API_URL),
@@ -105,8 +106,8 @@ impl AniListProvider {
                 let re = regex::Regex::new(r"<[^>]+>").expect("Invalid regex");
                 re.replace_all(&d, "").to_string()
             }),
-            release_date: media.start_date.as_ref().and_then(|d| d.to_string()),
-            end_date: media.end_date.as_ref().and_then(|d| d.to_string()),
+            release_date: media.start_date.as_ref().and_then(super::api_types::FuzzyDate::to_string),
+            end_date: media.end_date.as_ref().and_then(super::api_types::FuzzyDate::to_string),
             runtime: media.duration,
             rating: media.average_score.map(|s| f64::from(s) / 10.0),
             vote_count: media.popularity,
@@ -157,7 +158,7 @@ impl AniListProvider {
             metadata.cast = characters
                 .edges
                 .into_iter()
-                .filter(|e| matches!(e.role.as_deref(), Some("MAIN") | Some("SUPPORTING")))
+                .filter(|e| matches!(e.role.as_deref(), Some("MAIN" | "SUPPORTING")))
                 .take(20)
                 .map(|edge| {
                     let character_name = edge.node.name.full.unwrap_or_default();
@@ -188,10 +189,7 @@ impl AniListProvider {
                 .filter(|e| {
                     matches!(
                         e.role.as_deref(),
-                        Some("Director")
-                            | Some("Original Creator")
-                            | Some("Series Composition")
-                            | Some("Music")
+                        Some("Director" | "Original Creator" | "Series Composition" | "Music")
                     )
                 })
                 .map(|edge| PersonInfo {
@@ -235,7 +233,7 @@ impl MetadataProvider for AniListProvider {
     }
 
     async fn search(&self, query: &str, options: &SearchOptions) -> Result<Vec<MediaInfo>> {
-        let gql_query = r#"
+        let gql_query = r"
             query ($search: String, $year: Int, $perPage: Int) {
                 Page(page: 1, perPage: $perPage) {
                     media(search: $search, seasonYear: $year, type: ANIME, sort: SEARCH_MATCH) {
@@ -257,7 +255,7 @@ impl MetadataProvider for AniListProvider {
                     }
                 }
             }
-        "#;
+        ";
 
         let variables = serde_json::json!({
             "search": query,
@@ -282,7 +280,7 @@ impl MetadataProvider for AniListProvider {
     }
 
     async fn get_metadata(&self, id: &str, _media_type: MediaType) -> Result<MediaMetadata> {
-        let gql_query = r#"
+        let gql_query = r"
             query ($id: Int) {
                 Media(id: $id, type: ANIME) {
                     id
@@ -322,7 +320,7 @@ impl MetadataProvider for AniListProvider {
                     }
                 }
             }
-        "#;
+        ";
 
         let anime_id: i32 = id
             .parse()
@@ -359,7 +357,7 @@ impl MetadataProvider for AniListProvider {
             .parse()
             .map_err(|_| ScraperError::Parse(format!("Invalid MAL ID: {external_id}")))?;
 
-        let gql_query = r#"
+        let gql_query = r"
             query ($malId: Int) {
                 Media(idMal: $malId, type: ANIME) {
                     id
@@ -373,7 +371,7 @@ impl MetadataProvider for AniListProvider {
                     idMal
                 }
             }
-        "#;
+        ";
 
         let variables = serde_json::json!({ "malId": mal_id });
 

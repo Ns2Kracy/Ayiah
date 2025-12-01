@@ -19,9 +19,17 @@ pub struct ScanResult {
     pub errors: usize,
 }
 
+#[derive(Debug, Default)]
+struct ScanCounters {
+    new_items: usize,
+    existing_items: usize,
+    errors: usize,
+}
+
 impl FileScanner {
     /// Create a new file scanner
-    pub fn new(db: sqlx::SqlitePool) -> Self {
+    #[must_use]
+    pub const fn new(db: sqlx::SqlitePool) -> Self {
         Self { db }
     }
 
@@ -42,9 +50,7 @@ impl FileScanner {
         }
 
         let mut total_files = 0;
-        let mut new_items = 0;
-        let mut existing_items = 0;
-        let mut errors = 0;
+        let mut counters = ScanCounters::default();
 
         // Get supported extensions for this media type
         let extensions = get_supported_extensions(folder.media_type);
@@ -54,7 +60,7 @@ impl FileScanner {
         for entry in WalkDir::new(path)
             .follow_links(true)
             .into_iter()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
         {
             let entry_path = entry.path();
 
@@ -75,16 +81,8 @@ impl FileScanner {
                     let file_size = calculate_directory_size(root);
                     let title = extract_title(root);
 
-                    self.handle_media_entry(
-                        folder,
-                        title,
-                        file_path,
-                        file_size,
-                        &mut existing_items,
-                        &mut new_items,
-                        &mut errors,
-                    )
-                    .await;
+                    self.handle_media_entry(folder, title, file_path, file_size, &mut counters)
+                        .await;
                 }
 
                 // We captured the disc root, skip files inside it
@@ -113,7 +111,7 @@ impl FileScanner {
                 Ok(metadata) => metadata.len() as i64,
                 Err(e) => {
                     error!("Failed to get metadata for {}: {}", file_path, e);
-                    errors += 1;
+                    counters.errors += 1;
                     continue;
                 }
             };
@@ -121,28 +119,20 @@ impl FileScanner {
             // Extract title from filename
             let title = extract_title(entry_path);
 
-            self.handle_media_entry(
-                folder,
-                title,
-                file_path,
-                file_size,
-                &mut existing_items,
-                &mut new_items,
-                &mut errors,
-            )
-            .await;
+            self.handle_media_entry(folder, title, file_path, file_size, &mut counters)
+                .await;
         }
 
         info!(
             "Scan complete: {} total files, {} new, {} existing, {} errors",
-            total_files, new_items, existing_items, errors
+            total_files, counters.new_items, counters.existing_items, counters.errors
         );
 
         Ok(ScanResult {
             total_files,
-            new_items,
-            existing_items,
-            errors,
+            new_items: counters.new_items,
+            existing_items: counters.existing_items,
+            errors: counters.errors,
         })
     }
 
@@ -185,14 +175,12 @@ impl FileScanner {
         title: String,
         file_path: String,
         file_size: i64,
-        existing_items: &mut usize,
-        new_items: &mut usize,
-        errors: &mut usize,
+        counters: &mut ScanCounters,
     ) {
         match MediaItem::find_by_path(&self.db, &file_path).await {
             Ok(Some(_)) => {
                 debug!("Media item already exists: {}", file_path);
-                *existing_items += 1;
+                counters.existing_items += 1;
             }
             Ok(None) => {
                 let create_item = CreateMediaItem {
@@ -206,17 +194,17 @@ impl FileScanner {
                 match MediaItem::create(&self.db, create_item).await {
                     Ok(_) => {
                         info!("Added new media item: {}", title);
-                        *new_items += 1;
+                        counters.new_items += 1;
                     }
                     Err(e) => {
                         error!("Failed to create media item for {}: {}", file_path, e);
-                        *errors += 1;
+                        counters.errors += 1;
                     }
                 }
             }
             Err(e) => {
                 error!("Database error while checking {}: {}", file_path, e);
-                *errors += 1;
+                counters.errors += 1;
             }
         }
     }
@@ -262,14 +250,16 @@ fn is_inside_disc_structure(path: &Path) -> bool {
         component
             .as_os_str()
             .to_str()
-            .map(|s| s.eq_ignore_ascii_case("BDMV") || s.eq_ignore_ascii_case("VIDEO_TS"))
-            .unwrap_or(false)
+            .is_some_and(|s| s.eq_ignore_ascii_case("BDMV") || s.eq_ignore_ascii_case("VIDEO_TS"))
     })
 }
 
 fn calculate_directory_size(path: &Path) -> i64 {
     let mut total: i64 = 0;
-    for entry in WalkDir::new(path).into_iter().filter_map(|e| e.ok()) {
+    for entry in WalkDir::new(path)
+        .into_iter()
+        .filter_map(std::result::Result::ok)
+    {
         if entry.path().is_file() {
             match entry.metadata() {
                 Ok(metadata) => total += metadata.len() as i64,

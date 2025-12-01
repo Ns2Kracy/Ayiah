@@ -57,7 +57,7 @@ impl VideoMetadata {
             serde_json::to_string(&metadata.genres).unwrap_or_else(|_| "[]".to_string());
 
         let result = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             INSERT INTO video_metadata (
                 media_item_id, tmdb_id, tvdb_id, imdb_id, overview,
                 poster_path, backdrop_path, release_date, runtime,
@@ -78,7 +78,7 @@ impl VideoMetadata {
                 genres = excluded.genres,
                 updated_at = CURRENT_TIMESTAMP
             RETURNING *
-            "#,
+            ",
         )
         .bind(metadata.media_item_id)
         .bind(metadata.tmdb_id)
@@ -104,9 +104,9 @@ impl VideoMetadata {
         media_item_id: i64,
     ) -> Result<Option<Self>, sqlx::Error> {
         let result = sqlx::query_as::<_, Self>(
-            r#"
+            r"
             SELECT * FROM video_metadata WHERE media_item_id = ?
-            "#,
+            ",
         )
         .bind(media_item_id)
         .fetch_optional(db)
@@ -116,6 +116,7 @@ impl VideoMetadata {
     }
 
     /// Parse genres from JSON string
+    #[must_use] 
     pub fn parse_genres(&self) -> Vec<String> {
         self.genres
             .as_ref()

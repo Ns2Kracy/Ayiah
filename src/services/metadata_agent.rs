@@ -14,7 +14,8 @@ pub struct MetadataAgent {
 
 impl MetadataAgent {
     /// Create a new metadata agent
-    pub fn new(scraper_manager: Arc<ScraperManager>, db: sqlx::SqlitePool) -> Self {
+    #[must_use] 
+    pub const fn new(scraper_manager: Arc<ScraperManager>, db: sqlx::SqlitePool) -> Self {
         Self {
             scraper_manager,
             db,

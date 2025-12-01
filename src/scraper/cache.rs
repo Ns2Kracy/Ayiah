@@ -27,11 +27,13 @@ pub struct ScraperCache {
 
 impl ScraperCache {
     /// Create a new cache with default settings
+    #[must_use] 
     pub fn new() -> Self {
         Self::with_config(CacheConfig::default())
     }
 
     /// Create a new cache with custom configuration
+    #[must_use] 
     pub fn with_config(config: CacheConfig) -> Self {
         let search_cache = Cache::builder()
             .max_capacity(config.search_max_entries)
@@ -112,6 +114,7 @@ impl ScraperCache {
     }
 
     /// Get cache statistics
+    #[must_use] 
     pub fn stats(&self) -> CacheStats {
         CacheStats {
             search_entries: self.search_cache.entry_count(),

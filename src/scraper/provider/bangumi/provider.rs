@@ -1,4 +1,6 @@
-use super::api_types::*;
+use super::api_types::{
+    EpisodesResponse, InfoBoxValue, SUBJECT_TYPE_ANIME, SUBJECT_TYPE_MOVIE, SearchResponse, Subject,
+};
 use crate::scraper::{
     Result, ScraperError,
     provider::{HttpClient, MetadataProvider, SearchOptions},
@@ -19,6 +21,7 @@ impl Default for BangumiProvider {
 }
 
 impl BangumiProvider {
+    #[must_use]
     pub fn new() -> Self {
         Self {
             client: HttpClient::new(BANGUMI_API_URL),
@@ -64,7 +67,7 @@ impl BangumiProvider {
 
         let release_date = subject.date.clone().or_else(|| subject.air_date.clone());
 
-        let year = release_date
+        let _year = release_date
             .as_ref()
             .and_then(|d| d.split('-').next())
             .and_then(|y| y.parse::<i32>().ok());
@@ -170,7 +173,7 @@ impl BangumiProvider {
             }
             // Try to extract number
             d.chars()
-                .take_while(|c| c.is_ascii_digit())
+                .take_while(char::is_ascii_digit)
                 .collect::<String>()
                 .parse()
                 .ok()
@@ -207,8 +210,7 @@ impl MetadataProvider for BangumiProvider {
         let encoded_query = urlencoding::encode(query);
         let limit = options.limit.unwrap_or(20);
         let endpoint = format!(
-            "/search/subject/{}?type=2&responseGroup=small&max_results={}",
-            encoded_query, limit
+            "/search/subject/{encoded_query}?type=2&responseGroup=small&max_results={limit}"
         );
 
         let response: SearchResponse = self.client.get(&endpoint).await?;
@@ -282,7 +284,7 @@ impl MetadataProvider for BangumiProvider {
             id: ep.id.to_string(),
             title,
             season: 1,
-            episode: ep.ep.map(|n| n as i32).unwrap_or(ep.sort as i32),
+            episode: ep.ep.map_or(ep.sort as i32, |n| n as i32),
             absolute_number: Some(ep.sort as i32),
             air_date: ep.airdate,
             overview: ep.desc,

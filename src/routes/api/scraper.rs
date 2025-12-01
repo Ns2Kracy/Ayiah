@@ -228,7 +228,7 @@ async fn get_metadata(
 }
 
 /// Get episode details
-/// GET /api/scraper/episode?provider=...&series_id=...&season=...&episode=...
+/// GET /`api/scraper/episode?provider=...&series_id=...&season=...&episode`=...
 async fn get_episode(
     State(ctx): State<Ctx>,
     Query(params): Query<EpisodeQuery>,
@@ -384,7 +384,7 @@ async fn list_providers(
         .map(|p| ProviderInfo {
             id: p.id().to_string(),
             name: p.name().to_string(),
-            supported_types: p.supported_types().iter().map(|t| t.to_string()).collect(),
+            supported_types: p.supported_types().iter().map(std::string::ToString::to_string).collect(),
             requires_api_key: p.requires_api_key(),
         })
         .collect();

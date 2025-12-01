@@ -1,4 +1,4 @@
-use super::api_types::*;
+use super::api_types::{SearchResponse, MovieResult, TvResult, MovieDetails, TvDetails, EpisodeDetails, FindResponse};
 use crate::scraper::{
     provider::{HttpClient, MetadataProvider, SearchOptions},
     types::{
@@ -217,7 +217,7 @@ impl TmdbProvider {
                 .filter(|c| {
                     matches!(
                         c.job.as_deref(),
-                        Some("Director") | Some("Writer") | Some("Screenplay")
+                        Some("Director" | "Writer" | "Screenplay")
                     )
                 })
                 .map(|c| PersonInfo {
@@ -325,10 +325,7 @@ impl TmdbProvider {
                 .filter(|c| {
                     matches!(
                         c.job.as_deref(),
-                        Some("Director")
-                            | Some("Writer")
-                            | Some("Creator")
-                            | Some("Executive Producer")
+                        Some("Director" | "Writer" | "Creator" | "Executive Producer")
                     )
                 })
                 .map(|c| PersonInfo {
@@ -393,7 +390,7 @@ impl MetadataProvider for TmdbProvider {
             Some(MediaType::Movie) => {
                 results.extend(self.search_movies(query, options).await?);
             }
-            Some(MediaType::Tv) | Some(MediaType::Anime) => {
+            Some(MediaType::Tv | MediaType::Anime) => {
                 results.extend(self.search_tv(query, options).await?);
             }
             _ => {

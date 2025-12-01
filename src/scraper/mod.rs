@@ -63,6 +63,7 @@ pub enum ScraperError {
 }
 
 /// Create a default scraper manager with all providers
+#[must_use] 
 pub fn create_default_manager(tmdb_api_key: Option<&str>) -> ScraperManager {
     let mut manager = ScraperManager::new();
 

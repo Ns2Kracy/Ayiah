@@ -18,7 +18,7 @@ impl Scanner {
         for entry in WalkDir::new(path)
             .follow_links(true)
             .into_iter()
-            .filter_map(|e| e.ok())
+            .filter_map(std::result::Result::ok)
         {
             let path = entry.path();
             if !path.is_file() {
@@ -51,8 +51,7 @@ impl Scanner {
             if path
                 .extension()
                 .and_then(|e| e.to_str())
-                .map(|ext| VIDEO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
-                .unwrap_or(false)
+                .is_some_and(|ext| VIDEO_EXTENSIONS.contains(&ext.to_lowercase().as_str()))
             {
                 // If file is part of a disc structure (inside BDMV or VIDEO_TS), ignore it
                 // because we capture the root folder instead.
@@ -65,13 +64,12 @@ impl Scanner {
         video_files.into_iter().collect()
     }
 
-    /// Check if a path is part of a disc structure (BDMV or VIDEO_TS)
+    /// Check if a path is part of a disc structure (BDMV or `VIDEO_TS`)
     fn is_inside_disc_structure(path: &Path) -> bool {
         path.components().any(|c| {
             c.as_os_str()
                 .to_str()
-                .map(|s| s.eq_ignore_ascii_case("BDMV") || s.eq_ignore_ascii_case("VIDEO_TS"))
-                .unwrap_or(false)
+                .is_some_and(|s| s.eq_ignore_ascii_case("BDMV") || s.eq_ignore_ascii_case("VIDEO_TS"))
         })
     }
 }
