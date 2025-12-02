@@ -18,7 +18,7 @@ static CONFIG_MANAGER: OnceCell<ConfigManager> = OnceCell::new();
 
 // Default configuration path: ./config/ayiah.toml
 fn default_config_path() -> PathBuf {
-    PathBuf::from("./config/ayiah.toml")
+    PathBuf::from("./ayiah.toml")
 }
 
 const ENVIRONMENT_PREFIX: &str = "AYIAH";
